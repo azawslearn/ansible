@@ -1,0 +1,75 @@
+- name: Install MySQL and Setup User
+  hosts: mysql
+  become: yes
+  vars:
+    mysql_user: "ivansto"
+    mysql_user_password: "EmersonFitipaldi1!"
+
+  pre_tasks:
+    - name: Install Python3 pip
+      apt:
+        name: python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Install PyMySQL
+      pip:
+        name: pymysql
+        executable: pip3
+
+  tasks:
+    - name: Install MySQL
+      apt:
+        name: mysql-server
+        state: latest
+        update_cache: yes
+
+    - name: Start and enable MySQL service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Allow remote connections to MySQL
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^bind-address'
+        line: 'bind-address = 0.0.0.0'
+        state: present
+      notify: Restart MySQL
+
+    - name: Create MySQL user with all privileges
+      mysql_user:
+        name: "{{ mysql_user }}"
+        password: "{{ mysql_user_password }}"
+        priv: '*.*:ALL,GRANT'
+        host: '%'
+        state: present
+        login_user: root
+        login_password: ''
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: Create TEST_DB database
+      mysql_db:
+        name: TEST_DB
+        state: present
+        login_user: root
+        login_password: ''
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: Flush privileges
+      mysql_user:
+        login_user: root
+        login_password: ''
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        name: root
+        host_all: yes
+        state: present
+        check_implicit_admin: yes
+
+  handlers:
+    - name: Restart MySQL
+      service:
+        name: mysql
+        state: restarted
+
